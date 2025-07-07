@@ -1,0 +1,33 @@
+name: Update K8s Manifest
+
+on:
+  workflow_run:
+    workflows: ["Java CI"]
+    branches: [main]
+    types:
+      - completed
+
+jobs:
+  update-manifest:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout manifest repo
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository_owner }}/gha_mock_k8s_manifest
+          path: manifests
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Update image tag
+        run: |
+          sed -i "s|image:.*|image: ghcr.io/${{ github.repository_owner }}/gha-mock-java-app:${{ github.event.workflow_run.head_sha }}|" manifests/apps/java-app/deployment.yaml
+          
+      - name: Commit and push changes
+        run: |
+          cd manifests
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Update java-app image to ${{ github.event.workflow_run.head_sha }}"
+          git push
